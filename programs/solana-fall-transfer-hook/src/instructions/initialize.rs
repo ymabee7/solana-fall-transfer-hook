@@ -11,9 +11,10 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        // Unique, program-wide rate limit account. See the CHALLENGE note in
-        // `init_extra_account_meta.rs` for making this per-mint/per-owner.
-        seeds = [b"rate_limit"],
+        // One rate limit per (mint, owner). These seeds must stay byte-identical to
+        // `extra_account_metas()` in init_extra_account_meta.rs, which resolves this
+        // account at transfer time by account index rather than by name.
+        seeds = [b"rate_limit", mint.key().as_ref(), payer.key().as_ref()],
         bump,
         space = ANCHOR_DISCRIMINATOR_SIZE + RateLimit::INIT_SPACE,
     )]
@@ -22,8 +23,6 @@ pub struct Initialize<'info> {
 }
 
 pub fn handler(ctx: Context<Initialize>) -> Result<()> {
-    // For the challenge - Ensure the mint is a token-2022 mint by checking its owner (Pass the mint in the context and check its owner. 
-    // Consider saving the mint in the RateLimit struct if needed for future use.
     require_keys_eq!(
         *ctx.accounts.mint.to_account_info().owner,
         token_2022::ID,
