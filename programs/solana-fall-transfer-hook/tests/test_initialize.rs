@@ -3,7 +3,7 @@ mod helpers;
 
 use {
     anchor_lang::{
-        InstructionData, ToAccountMetas,
+        AccountDeserialize, InstructionData, ToAccountMetas,
         solana_program::instruction::Instruction,
         system_program::ID as SYSTEM_PROGRAM_ID,
     },
@@ -11,6 +11,8 @@ use {
     solana_pubkey::Pubkey,
     solana_signer::Signer,
 };
+
+use solana_fall_transfer_hook::RateLimit;
 
 use helpers::{setup, initialize_mint};
 
@@ -47,4 +49,13 @@ fn test_initialize() {
 
     let res = svm.send_transaction(tx);
     assert!(res.is_ok(), "Initialization failed: {:?}", res.err());
+
+    let account = svm.get_account(&rate_limit).expect("rate limit account should exist");
+    let state = solana_fall_transfer_hook::RateLimit::try_deserialize(&mut account.data.as_slice())
+        .expect("should deserialize as a RateLimit");
+
+    assert_eq!(state.mint, mint.pubkey(), "rate limit should record its mint");
+    assert_eq!(state.authority, payer.pubkey());
+    assert_eq!(state.max_amount, RateLimit::MAX_AMOUNT);
+    assert_eq!(state.amount_transferred, 0);
 }
